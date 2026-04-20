@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Scan-ner</title>
+  <style>
+    :root{--bg:#0b1120;--panel:#111827;--muted:#9fb0d1;--line:#263247;--text:#e5eefc}
+    *{box-sizing:border-box} body{margin:0;font-family:Calibri,Arial,sans-serif;background:radial-gradient(circle at top,#16213a 0,#0b1120 55%);color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:28px 18px 56px}.panel{background:rgba(17,24,39,.94);border:1px solid var(--line);border-radius:22px;padding:20px;margin-top:18px}
+    a{color:#93c5fd}.muted{color:var(--muted)} h1,h2,h3{margin:0 0 10px} .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.kv{display:grid;grid-template-columns:180px 1fr;gap:8px 14px;align-items:start}.kv div{padding:6px 0;border-bottom:1px solid #1f2a3d}
+    .flash{background:#450a0a;border:1px solid #7f1d1d;color:#fecaca;padding:10px 12px;border-radius:12px;margin:10px 0}
+    input[type=file]{display:block;width:100%;padding:12px;background:#0f172a;border:1px solid #334155;border-radius:14px;color:#e5eefc}
+    button{padding:12px 16px;border-radius:14px;border:none;background:#2563eb;color:#fff;cursor:pointer;font-weight:800;margin-top:12px}
+    .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{padding:7px 10px;border-radius:999px;background:#0f172a;border:1px solid #30415f;color:#dbeafe;font-size:14px}
+    pre{white-space:pre-wrap;word-break:break-word;background:#020617;padding:14px;border-radius:14px;min-height:250px;overflow:auto;border:1px solid #1f2937}
+    .finding{display:flex;justify-content:space-between;gap:10px;padding:11px 12px;background:#0f172a;border:1px solid #27364d;border-radius:14px;margin:8px 0}
+    .weight{font-weight:800;color:#fca5a5}.safe{color:#86efac}.badge{display:inline-block;padding:7px 11px;border-radius:999px;font-weight:800}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media (max-width: 900px){.grid,.hero,.two{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/">← zurück zur Startseite</a></p>
+
+    <section class="hero">
+      <div class="panel">
+        <h1>Scan-ner</h1>
+        <p class="muted">Statische Analyse ohne Ausführung. Gut für einen ersten Blick auf Skripte, Batch-Dateien und Windows-Binaries.</p>
+        <form method="post" enctype="multipart/form-data">
+          <input type="file" name="sample" required>
+          <button type="submit">Datei analysieren</button>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Was geprüft wird</h3>
+        <div class="chips">
+          <span class="chip">SHA-256</span>
+          <span class="chip">Dateigröße</span>
+          <span class="chip">Entropie</span>
+          <span class="chip">Strings</span>
+          <span class="chip">URLs & IPs</span>
+          <span class="chip">Verdächtige Muster</span>
+          <span class="chip">PE-Imports</span>
+        </div>
+        <p class="muted" style="margin-top:12px">Maximale Uploadgröße: {{ max_upload_mb }} MB. Diese Analyse beweist keine Sicherheit, sie zeigt nur statische Hinweise.</p>
+      </div>
+    </section>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if result %}
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <h2>{{ result.filename }}</h2>
+            <p class="muted">Empfohlene Einordnung: {{ result.purpose }}</p>
+          </div>
+          <div class="badge" style="background:{{ result.color }}22;color:{{ result.color }};border:1px solid {{ result.color }}55">
+            {{ result.level }} · Score {{ result.score }}/100
+          </div>
+        </div>
+      </div>
+
+      <div class="panel grid">
+        <div>
+          <h3>Dateiübersicht</h3>
+          <div class="kv">
+            <div class="muted">Größe</div><div>{{ result.size|format_size }}</div>
+            <div class="muted">Erweiterung</div><div>{{ result.extension }}</div>
+            <div class="muted">SHA-256</div><div style="word-break:break-all">{{ result.sha256 }}</div>
+            <div class="muted">Entropie</div><div>{{ result.entropy }}</div>
+            <div class="muted">Textartig</div><div>{{ 'ja' if result.likely_text else 'nein' }}</div>
+          </div>
+        </div>
+        <div>
+          <h3>Empfehlung</h3>
+          <p>{{ result.recommendation }}</p>
+          {% if result.safe_hints %}
+            <h3 style="margin-top:18px">Unkritische Hinweise</h3>
+            {% for hint in result.safe_hints %}
+              <div class="finding"><span class="safe">{{ hint }}</span><span>ok</span></div>
+            {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Auffälligkeiten</h3>
+        {% if result.findings or result.pe.notes %}
+          {% for item in result.findings %}
+            <div class="finding"><span>{{ item.label }}</span><span class="weight">+{{ item.weight }}</span></div>
+          {% endfor %}
+          {% for note in result.pe.notes %}
+            <div class="finding"><span>{{ note }}</span><span class="weight">PE</span></div>
+          {% endfor %}
+        {% else %}
+          <p class="muted">Keine starken statischen Warnsignale gefunden.</p>
+        {% endif %}
+      </div>
+
+      <div class="panel two">
+        <div>
+          <h3>URLs und IPs</h3>
+          {% if result.urls or result.ips %}
+            <div class="chips">
+              {% for url in result.urls %}<span class="chip">{{ url }}</span>{% endfor %}
+              {% for ip in result.ips %}<span class="chip">{{ ip }}</span>{% endfor %}
+            </div>
+          {% else %}
+            <p class="muted">Keine URLs oder IPs erkannt.</p>
+          {% endif %}
+
+          <h3 style="margin-top:18px">Strings</h3>
+          {% if result.strings %}
+            <pre>{% for s in result.strings %}{{ s }}
+{% endfor %}</pre>
+          {% else %}
+            <p class="muted">Keine brauchbaren Strings extrahiert.</p>
+          {% endif %}
+        </div>
+        <div>
+          <h3>Vorschau</h3>
+          <pre>{{ result.preview }}</pre>
+        </div>
+      </div>
+
+      {% if result.pe.imports %}
+      <div class="panel">
+        <h3>PE-Imports</h3>
+        <div class="chips">
+          {% for imp in result.pe.imports %}
+            <span class="chip">{{ imp }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</body>
+</html>

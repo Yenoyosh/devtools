@@ -1,0 +1,74 @@
+
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ArchiveReader</title>
+  <style>
+    body{font-family:Calibri,Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0}
+    .wrap{max-width:1200px;margin:0 auto;padding:28px 18px}
+    a{color:#93c5fd}
+    .panel{background:#111827;border:1px solid #334155;border-radius:18px;padding:18px;margin-top:18px}
+    .row{display:grid;grid-template-columns:420px 1fr;gap:18px}
+    .entry-list{max-height:600px;overflow:auto;border:1px solid #334155;border-radius:14px}
+    .entry{display:block;padding:10px 12px;border-bottom:1px solid #1f2937;text-decoration:none;color:#e5e7eb}
+    .entry:hover,.entry.active{background:#1e293b}
+    pre{white-space:pre-wrap;word-break:break-word;background:#020617;padding:14px;border-radius:14px;min-height:400px;overflow:auto}
+    .flash{background:#7f1d1d;border:1px solid #dc2626;color:#fecaca;padding:10px 12px;border-radius:12px;margin:10px 0}
+    input[type=file]{margin-right:10px}
+    button{padding:10px 14px;border-radius:10px;border:none;background:#2563eb;color:#fff;cursor:pointer}
+    small{color:#94a3b8}
+    @media (max-width: 900px){.row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a href="/">← zurück</a></p>
+    <h1>ArchiveReader</h1>
+    <p>ZIP, JAR, TAR, TGZ, GZ, BZ2, XZ, 7Z und RAR testen.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="flash">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="panel">
+      <form method="post" enctype="multipart/form-data">
+        <input type="file" name="archive" required>
+        <button type="submit">Archiv lesen</button>
+      </form>
+      <p><small>Bei RAR braucht der Server zusätzlich passende Unterstützung. ZIP/TAR läuft direkt am einfachsten.</small></p>
+    </div>
+
+    {% if entries %}
+    <div class="panel row">
+      <div>
+        <h3>Einträge ({{ entries|length }})</h3>
+        <div class="entry-list">
+          {% for entry in entries %}
+            <form method="post" enctype="multipart/form-data" style="margin:0">
+              <input type="hidden" name="selected" value="{{ loop.index0 }}">
+              <input type="hidden" name="archive" value="">
+            </form>
+          {% endfor %}
+          {% for entry in entries %}
+            <div class="entry {% if selected == loop.index0|string %}active{% endif %}">
+              <div><b>{{ entry.path }}</b></div>
+              <small>{{ entry.kind }} · {{ format_size(entry.size) }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <h3>Vorschau</h3>
+        <pre>{{ preview }}</pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</body>
+</html>
